@@ -1,8 +1,6 @@
 package com.example.api;
 
-import com.example.flow.ExampleFlow;
-import com.example.schema.IOUSchemaV1;
-import com.example.state.IOUState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import net.corda.core.contracts.StateAndRef;
@@ -15,6 +13,15 @@ import net.corda.core.node.services.vault.*;
 import net.corda.core.transactions.SignedTransaction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+
+import com.example.core.helpers.*;
+import com.example.flow.*;
+import com.example.DTO.*;
+import net.corda.core.messaging.FlowProgressHandle;
+import java.util.ArrayList;
+import com.example.user.*;
+
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -73,46 +80,50 @@ public class ExampleApi {
     /**
      * Displays all IOU states that exist in the node's vault.
      */
+
+
     @GET
-    @Path("ious")
+    @Path("get-user")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<StateAndRef<IOUState>> getIOUs() {
-        return rpcOps.vaultQuery(IOUState.class).getStates();
+    public List<UserDTO> getCorrespondents() {
+        List<StateAndRef<StateUser>> allCorrespondents = rpcOps.vaultQuery(StateUser.class).getStates();
+        List<UserDTO> resultList = new ArrayList<>();
+
+        try {
+            if (allCorrespondents != null) {
+                for (StateAndRef<StateUser> sr : allCorrespondents) {
+                    resultList.add(sr.getState().component1().createDTO());
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return resultList;
     }
 
-    /**
-     * Initiates a flow to agree an IOU between two parties.
-     *
-     * Once the flow finishes it will have written the IOU to ledger. Both the lender and the borrower will be able to
-     * see it when calling /api/example/ious on their respective nodes.
-     *
-     * This end-point takes a Party name parameter as part of the path. If the serving node can't find the other party
-     * in its network map cache, it will return an HTTP bad request.
-     *
-     * The flow is invoked asynchronously. It returns a future when the flow's call() method returns.
-     */
     @PUT
-    @Path("create-iou")
-    public Response createIOU(@QueryParam("iouValue") int iouValue, @QueryParam("partyName") CordaX500Name partyName) throws InterruptedException, ExecutionException {
-        if (iouValue <= 0) {
-            return Response.status(BAD_REQUEST).entity("Query parameter 'iouValue' must be non-negative.\n").build();
-        }
-        if (partyName == null) {
-            return Response.status(BAD_REQUEST).entity("Query parameter 'partyName' missing or has wrong format.\n").build();
-        }
+    @Path("create-user")
+    public Response createCor(@QueryParam("cor_id") String cor_id,
+                              @QueryParam("bill") String bill
 
-        final Party otherParty = rpcOps.wellKnownPartyFromX500Name(partyName);
-        if (otherParty == null) {
-            return Response.status(BAD_REQUEST).entity("Party named " + partyName + "cannot be found.\n").build();
+    )
+    {
+        if (StringHelper.isEmptyOrWhitespace(cor_id) ||
+                StringHelper.isEmptyOrWhitespace(bill)){
+            return Response.status(BAD_REQUEST).entity("Полня должны быть заданы").build();
         }
 
         try {
-            final SignedTransaction signedTx = rpcOps
-                    .startTrackedFlowDynamic(ExampleFlow.Initiator.class, iouValue, otherParty)
+            FlowProgressHandle<SignedTransaction> flowHandle = rpcOps
+                    .startTrackedFlowDynamic(FlowUser.Initiator.class, cor_id, bill);
+            flowHandle.getProgress().subscribe(evt -> System.out.printf(">> %s\n", evt));
+
+            // The line below blocks and waits for the flow to return.
+            final SignedTransaction result = flowHandle
                     .getReturnValue()
                     .get();
 
-            final String msg = String.format("Transaction id %s committed to ledger.\n", signedTx.getId());
+            final String msg = String.format("Transaction id %s committed to ledger.\n", result.getId());
             return Response.status(CREATED).entity(msg).build();
 
         } catch (Throwable ex) {
@@ -121,20 +132,48 @@ public class ExampleApi {
             return Response.status(BAD_REQUEST).entity(msg).build();
         }
     }
-	
-	/**
-     * Displays all IOU states that are created by Party.
-     */
-    @GET
-    @Path("my-ious")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response getMyIOUs() throws NoSuchFieldException {
-        QueryCriteria generalCriteria = new QueryCriteria.VaultQueryCriteria(Vault.StateStatus.ALL);
-        Field lender = IOUSchemaV1.PersistentIOU.class.getDeclaredField("lender");
-        CriteriaExpression lenderIndex = Builder.equal(lender, myLegalName.toString());
-        QueryCriteria lenderCriteria = new QueryCriteria.VaultCustomQueryCriteria(lenderIndex);
-        QueryCriteria criteria = generalCriteria.and(lenderCriteria);
-        List<StateAndRef<IOUState>> results = rpcOps.vaultQueryByCriteria(criteria,IOUState.class).getStates();
-        return Response.status(OK).entity(results).build();
+
+    @PUT
+    @Path("change-user")
+    public Response changeCor(UserDTO CorStateDTO) {
+        if (CorStateDTO == null) return Response.status(BAD_REQUEST)
+                .entity("Error: UserDTO = null. Передана пустая структура").build();
+
+        try {
+            //  Date CorCreateDate = DateHelper.createFromString(UserDTO.getCocCreate(), DateHelper.SIMPLE_DATE_FORMAT_RU);
+            //CorCreateDate = docCreateDate != null ? docCreateDate : new Date();
+            //Date planDate = DateHelper.createFromString(docStateDTO.getExecutePlanDate(), DateHelper.SIMPLE_DATE_FORMAT_RU);
+            //planDate = planDate != null ? planDate : new Date();
+            //Date factDate = DateHelper.createFromString(docStateDTO.getExecuteFactDate(), DateHelper.SIMPLE_DATE_FORMAT_RU);
+            //factDate = factDate != null ? factDate : new Date();
+//            Party employee = rpcOps.wellKnownPartyFromX500Name(docStateDTO.getEmployee());
+//            if (employee == null) {
+//                throw new NullPointerException("Employee not found: " +
+//                        docStateDTO.getEmployee() != null ? docStateDTO.getEmployee().toString() : "null");
+//            }
+
+            FlowProgressHandle<SignedTransaction> flowHandle = rpcOps
+                    .startTrackedFlowDynamic(EditFlowUser.Initiator.class,
+                            StringHelper.getValueOrDefault(CorStateDTO.getCor_id()),
+                            StringHelper.getValueOrDefault(CorStateDTO.getBill()),
+                            CorStateDTO.getLinearId()
+
+                    );
+            flowHandle.getProgress().subscribe(evt -> System.out.printf(">> %s\n", evt));
+            final SignedTransaction result = flowHandle
+                    .getReturnValue()
+                    .get();
+
+            final String msg = String.format("Transaction id %s committed to ledger.\n", result.getId());
+            return Response.status(CREATED).entity(msg).build();
+        } catch (Throwable ex) {
+            final String message = ex.getMessage();
+            logger.error(ex.getMessage(), ex);
+            return Response.status(BAD_REQUEST).entity("Message: " + message + " Details: " + ex.toString()).build();
+        }
     }
+
+
+
+
 }

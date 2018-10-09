@@ -2,8 +2,9 @@ repositories {
     mavenLocal()
     jcenter()
     mavenCentral()
-    maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda' }
+    maven { url 'https://dl.bintray.com/kotlin/exposed' }
     maven { url 'https://jitpack.io' }
+    maven { url 'https://ci-artifactory.corda.r3cev.com/artifactory/corda-releases' }
 }
 
 apply plugin: 'java'
@@ -72,7 +73,10 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
         name "O=Notary,L=London,C=GB"
         notary = [validating : false]
         p2pPort 10006
+      
+ 
         cordapps = ["$corda_release_group:corda-finance:$corda_release_version"]
+
     }
     node {
         name "O=PartyA,L=London,C=GB"
@@ -104,6 +108,39 @@ task deployNodes(type: net.corda.plugins.Cordform, dependsOn: ['jar']) {
             adminAddress("localhost:10054")
         }
         webPort 10015
+        cordapps = ["$corda_release_group:corda-finance:$corda_release_version"]
+        rpcUsers = [[user: "user1", "password": "test", "permissions": ["ALL"]]]
+    }
+    node {
+        name "O=PartyD,L=Paris,C=FR"
+        p2pPort 10016
+        rpcSettings {
+            address("localhost:10017")
+            adminAddress("localhost:10057")
+        }
+        webPort 10018
+        cordapps = ["$corda_release_group:corda-finance:$corda_release_version"]
+        rpcUsers = [[user: "user1", "password": "test", "permissions": ["ALL"]]]
+    }
+    node {
+        name "O=PartyE,L=Paris,C=FR"
+        p2pPort 10019
+        rpcSettings {
+            address("localhost:10020")
+            adminAddress("localhost:10060")
+        }
+        webPort 10021
+        cordapps = ["$corda_release_group:corda-finance:$corda_release_version"]
+        rpcUsers = [[user: "user1", "password": "test", "permissions": ["ALL"]]]
+    }
+    node {
+        name "O=PartyF,L=Paris,C=FR"
+        p2pPort 10022
+        rpcSettings {
+            address("localhost:10023")
+            adminAddress("localhost:10063")
+        }
+        webPort 10024
         cordapps = ["$corda_release_group:corda-finance:$corda_release_version"]
         rpcUsers = [[user: "user1", "password": "test", "permissions": ["ALL"]]]
     }
